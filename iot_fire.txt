@@ -1,0 +1,36 @@
+import conf, email_conf
+from boltiot import Sms,Bolt,Email
+import json, time
+
+mybolt = Bolt(conf.API_KEY, conf.DEVICE_ID)
+sms = Sms(conf.SID, conf.AUTH_TOKEN,conf.TO_NUMBER,conf.FROM_NUMBER)
+mailer = Email(email_conf.MAILGUN_API_KEY, email_conf.SANDBOX_URL,
+               email_conf.SENDER_EMAIL, email_conf.RECIPIENTS)
+
+while True:
+    print("Reading Sensor value")
+    response = mybolt.digitalRead('1')
+    data = json.loads(response)
+    print("Sensor value is: " + str(data['value']))
+    try:
+        sensor_value = int(data['value'])
+        if sensor_value == 1:
+            mybolt.digitalWrite('3', 'HIGH')
+            mybolt.digitalWrite('4', 'HIGH')
+            time.sleep(5)
+            mybolt.digitalWrite('3', 'LOW')
+            mybolt.digitalWrite('4', 'LOW')
+            print("Making request to Twilio to send a SMS")
+            response = sms.send_sms("Emergency! Flame detected in the room")
+            print("Response recieved from Twilio is :" + str(response))
+            print("Status of SMS at Twilio is :" + str(response.status))
+            print("Making request to Mailgun to send an email")
+            response2 = mailer.send_email("Emergency!", "There is a fire in your house")
+
+            response2_text = json.loads(response2.text)
+            print("Response recieved from Mailgun is: " +
+                  str(response2_text['message']))
+    except Exception as e:
+        print("Error occured: Below are the details")
+        print(e)
+    time.sleep(10)
